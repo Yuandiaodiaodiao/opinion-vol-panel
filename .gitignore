@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Database files
+*.db
+db/
+
+# Data and state
+data/
+monitor_state.json
+
+# Environment variables
+.env
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor directories
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Cache
+.cache/
+
+# Test files
+test.js
+test_*.js
+*_test.js
+*.test.js
+demo.js
+debug_*.js
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/

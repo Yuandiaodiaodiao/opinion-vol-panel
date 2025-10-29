@@ -1,0 +1,40 @@
+{
+  "api": {
+    "bsc_api_key": "",
+    "bsc_api_url": "https://api.etherscan.io/v2/api",
+    "bsc_rpc_url": "https://bsc-dataseed.binance.org/",
+    "bsc_rpc_urls": [
+      "https://bsc-rpc.publicnode.com",
+      "https://bsc-dataseed1.binance.org/",
+      "https://bsc-dataseed2.binance.org/",
+      "https://bsc-dataseed3.binance.org/",
+      "https://bsc-dataseed4.binance.org/",
+      "https://bsc-dataseed1.defibit.io/",
+      "https://bsc-dataseed2.defibit.io/",
+      "https://bsc-dataseed3.defibit.io/",
+      "https://bsc-dataseed4.defibit.io/",
+      "https://bsc-dataseed1.ninicoin.io/",
+      "https://bsc-dataseed2.ninicoin.io/",
+      "https://bsc-dataseed3.ninicoin.io/",
+      "https://bsc-dataseed4.ninicoin.io/",
+      "https://rpc-bsc.48.club",
+      "https://bsc.blockrazor.xyz",
+      "https://0.48.club"
+    ]
+  },
+  "proxy": {
+    "enabled": false,
+    "url": "http://172.18.80.1:10809"
+  },
+  "contract": {
+    "address": "0xad1a38cec043e70e83a3ec30443db285ed10d774",
+    "startBlock": 0
+  },
+  "monitor": {
+    "pollInterval": 30000,
+    "stateFile": "./monitor_state.json"
+  },
+  "database": {
+    "path": "./data/orders.db"
+  }
+}

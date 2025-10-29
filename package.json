@@ -1,0 +1,27 @@
+{
+  "name": "opvol",
+  "version": "1.0.0",
+  "description": "Prediction market volume tracker for BSC",
+  "main": "monitorServer.js",
+  "scripts": {
+    "monitor": "node monitorServer.js",
+    "dashboard": "node dashboard-web.js",
+    "dashboard:cli": "node dashboard.js",
+    "test:gen": "node generate_60min_test_data.js"
+  },
+  "keywords": [
+    "bsc",
+    "prediction-market",
+    "volume-tracker"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.2",
+    "chalk": "^4.1.2",
+    "cli-table3": "^0.6.3",
+    "ethers": "^6.15.0",
+    "https-proxy-agent": "^7.0.2",
+    "sql.js": "^1.10.3"
+  }
+}
