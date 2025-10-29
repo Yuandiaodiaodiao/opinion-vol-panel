@@ -3,7 +3,7 @@ node_modules/
 
 # Database files
 *.db
-db/
+
 
 # Data and state
 data/
