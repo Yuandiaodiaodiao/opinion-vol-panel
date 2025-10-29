@@ -1,5 +1,5 @@
  "api": {
-    "bsc_api_key": "ZPPVNIHW99GPD7Q7IEGMT1TYD8QVMCBHM3",
+    "bsc_api_key": "",
     "bsc_api_url": "https://api.bscscan.com/api"
   },
 
