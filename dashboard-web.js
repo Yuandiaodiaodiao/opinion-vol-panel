@@ -1094,7 +1094,9 @@ async function startServer() {
           // 如果请求的是parent topic ID，直接返回完整信息（包括childList）
           if (rawTopicInfo.topicId === topicId) {
             // 清理冗余数据节省流量
-            rawTopicInfo.raw.klineThumbnail=[];
+            if (rawTopicInfo.raw && rawTopicInfo.raw.klineThumbnail) {
+              rawTopicInfo.raw.klineThumbnail = [];
+            }
             sendJSON(res, 200, rawTopicInfo);
           } else {
             // 如果请求的是child topic ID，从childList中查找
@@ -1102,6 +1104,7 @@ async function startServer() {
             sendJSON(res, 200, topicInfo);
           }
         } catch (error) {
+          console.error('Error loading topic:', topicId, error);
           sendJSON(res, 200, { error: error.message });
         }
       } else if (pathname === '/api/data') {
