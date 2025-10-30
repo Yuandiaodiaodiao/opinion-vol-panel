@@ -12,6 +12,8 @@ class TopicAPI {
     this.baseUrl = 'https://proxy.opinion.trade:8443/api/bsc/api/v2/topic';
     this.cacheDir = cacheDir;
     this.agent = proxyConfig && proxyConfig.enabled ? new HttpsProxyAgent(proxyConfig.url) : null;
+    this.nonMultiListPath = path.join(this.cacheDir, 'non_multi_topics.json');
+    this.nonMultiTopics = this.loadNonMultiList();
   }
 
   /**
@@ -21,6 +23,56 @@ class TopicAPI {
     if (!fs.existsSync(this.cacheDir)) {
       fs.mkdirSync(this.cacheDir, { recursive: true });
     }
+  }
+
+  /**
+   * 加载非multi topic列表
+   */
+  loadNonMultiList() {
+    try {
+      if (fs.existsSync(this.nonMultiListPath)) {
+        const content = fs.readFileSync(this.nonMultiListPath, 'utf-8');
+        const data = JSON.parse(content);
+        return new Set(data.topics || []);
+      }
+    } catch (error) {
+      console.error(`加载非multi列表失败:`, error.message);
+    }
+    return new Set();
+  }
+
+  /**
+   * 保存非multi topic列表
+   */
+  saveNonMultiList() {
+    try {
+      this.ensureCacheDir();
+      const data = {
+        timestamp: Date.now(),
+        topics: Array.from(this.nonMultiTopics)
+      };
+      fs.writeFileSync(this.nonMultiListPath, JSON.stringify(data, null, 2), 'utf-8');
+    } catch (error) {
+      console.error(`保存非multi列表失败:`, error.message);
+    }
+  }
+
+  /**
+   * 添加topic到非multi列表
+   */
+  addToNonMultiList(topicId) {
+    if (!this.nonMultiTopics.has(topicId)) {
+      this.nonMultiTopics.add(topicId);
+      this.saveNonMultiList();
+      console.log(`✓ Topic ${topicId} 已标记为非multi，下次将跳过multi查询`);
+    }
+  }
+
+  /**
+   * 检查topic是否为非multi
+   */
+  isNonMultiTopic(topicId) {
+    return this.nonMultiTopics.has(topicId);
   }
 
   /**
@@ -79,6 +131,46 @@ class TopicAPI {
   }
 
   /**
+   * 尝试从multi接口获取topic信息
+   */
+  async getTopicInfoFromMulti(topicId) {
+    const multiUrl = `https://proxy.opinion.trade:8443/api/bsc/api/v2/topic/mutil/${topicId}`;
+    console.log(`→ 尝试从Multi API获取 Topic ${topicId}...`);
+
+    const config = {
+      method: 'get',
+      url: multiUrl,
+      timeout: 10000,
+      httpsAgent: new (require('https').Agent)({ rejectUnauthorized: false })
+    };
+
+    if (this.agent) {
+      config.httpsAgent = this.agent;
+      config.proxy = false;
+    }
+
+    try {
+      const response = await axios(config);
+
+      // 检查返回数据是否有效
+      if (response.data && response.data.errno === 0 && response.data.result && response.data.result.data) {
+        console.log(`✓ Multi API返回有效数据`);
+        return this.parseTopicInfo(response.data);
+      } else {
+        console.log(`! Multi API返回数据无效，使用fallback`);
+        // 将topic添加到非multi列表
+        this.addToNonMultiList(topicId);
+        return null;
+      }
+    } catch (error) {
+      console.log(`! Multi API查询失败: ${error.message}，使用fallback`);
+      // 将topic添加到非multi列表
+      this.addToNonMultiList(topicId);
+      return null;
+    }
+  }
+
+  /**
    * 根据topicId获取topic详情（带缓存）
    */
   async getTopicInfo(topicId, forceRefresh = false) {
@@ -90,9 +182,27 @@ class TopicAPI {
       }
     }
 
+    // 检查是否为已知的非multi topic，如果是则直接跳过multi查询
+    if (!this.isNonMultiTopic(topicId)) {
+      // 先尝试使用multi接口
+      try {
+        const multiResult = await this.getTopicInfoFromMulti(topicId);
+        if (multiResult) {
+          // 保存到缓存
+          this.saveToCache(topicId, multiResult);
+          return multiResult;
+        }
+      } catch (error) {
+        console.log(`Multi接口异常: ${error.message}`);
+      }
+    } else {
+      console.log(`✓ Topic ${topicId} 已知为非multi，跳过multi查询`);
+    }
+
+    // Fallback到原接口
     try {
       const url = `${this.baseUrl}/${topicId}`;
-      console.log(`→ 从API获取 Topic ${topicId}...`);
+      console.log(`→ 从原API获取 Topic ${topicId}...`);
 
       const config = {
         method: 'get',

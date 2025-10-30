@@ -23,7 +23,7 @@
     ]
   },
   "proxy": {
-    "enabled": false,
+    "enabled": true,
     "url": "http://172.18.80.1:10809"
   },
   "contract": {

@@ -293,6 +293,45 @@ function generateHTML() {
       margin-right: 5px;
     }
 
+    .child-tabs {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid #334155;
+      display: none;
+    }
+    .child-tabs-title {
+      font-size: 14px;
+      color: #94a3b8;
+      margin-bottom: 10px;
+      font-weight: 500;
+    }
+    .child-tabs-container {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .child-tab {
+      padding: 12px 18px;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      background: #0f172a;
+      color: #e4e4e7;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .child-tab:hover {
+      border-color: #38bdf8;
+      background: #1e293b;
+    }
+    .child-tab.active {
+      border-color: #38bdf8;
+      background: #1e293b;
+      color: #38bdf8;
+      font-weight: 600;
+    }
+
     .topic-info {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -438,6 +477,11 @@ function generateHTML() {
 
       <div class="topic-tabs" id="topicTabs"></div>
 
+      <div class="child-tabs" id="childTabs">
+        <div class="child-tabs-title">Select Sub-Topic:</div>
+        <div class="child-tabs-container" id="childTabsContainer"></div>
+      </div>
+
       <div id="topicInfo" class="topic-info" style="display: none;"></div>
     </div>
 
@@ -504,6 +548,8 @@ function generateHTML() {
 
   <script>
     let currentTopicId = null;
+    let currentChildTopicId = null;
+    let currentTopicData = null;
     let chart = null;
     let allTopics = [];
 
@@ -531,6 +577,7 @@ function generateHTML() {
 
     async function loadTopic(topicId) {
       currentTopicId = topicId;
+      currentChildTopicId = null;
       document.getElementById('topicInput').value = topicId;
 
       try {
@@ -542,16 +589,96 @@ function generateHTML() {
           return;
         }
 
-        renderTopicInfo(topicInfo);
+        currentTopicData = topicInfo;
         renderTopicTabs();
-        document.getElementById('mainContent').style.display = 'block';
-        document.getElementById('emptyState').style.display = 'none';
 
-        await fetchData();
+        // 检查是否是multi topic（包含childList）
+        // rawTopicInfo可能在topicInfo.raw.childList 或 topicInfo.childList
+        const childList = (topicInfo.raw && topicInfo.raw.childList) || topicInfo.childList;
+
+        if (childList && Array.isArray(childList) && childList.length > 0) {
+          // Multi topic - 显示父主题信息和子主题tabs
+          console.log('Multi topic detected with', childList.length, 'children');
+          renderParentTopicInfo(topicInfo);
+          renderChildTabs(childList);
+          document.getElementById('childTabs').style.display = 'block';
+          document.getElementById('mainContent').style.display = 'none';
+          document.getElementById('topicInfo').style.display = 'grid';
+          document.getElementById('emptyState').style.display = 'none';
+        } else {
+          // Single topic - 直接加载数据
+          console.log('Single topic detected');
+          document.getElementById('childTabs').style.display = 'none';
+          renderTopicInfo(topicInfo);
+          document.getElementById('mainContent').style.display = 'block';
+          document.getElementById('topicInfo').style.display = 'grid';
+          document.getElementById('emptyState').style.display = 'none';
+          await fetchData();
+        }
       } catch (error) {
         console.error('Failed to load topic:', error);
         alert('Failed to load topic: ' + error.message);
       }
+    }
+
+    function renderChildTabs(childList) {
+      const container = document.getElementById('childTabsContainer');
+      container.innerHTML = childList.map(child => \`
+        <div class="child-tab \${child.topicId === currentChildTopicId ? 'active' : ''}"
+             onclick="loadChildTopic(\${child.topicId})">
+          <strong>#\${child.topicId}</strong> \${child.title}
+        </div>
+      \`).join('');
+    }
+
+    async function loadChildTopic(childTopicId) {
+      currentChildTopicId = childTopicId;
+
+      try {
+        const response = await fetch(\`/api/topic/\${childTopicId}\`);
+        const childTopicInfo = await response.json();
+
+        if (childTopicInfo.error) {
+          alert(childTopicInfo.error);
+          return;
+        }
+
+        // Re-render child tabs to update active state
+        if (currentTopicData && currentTopicData.raw && currentTopicData.raw.childList) {
+          renderChildTabs(currentTopicData.raw.childList);
+        }
+
+        renderTopicInfo(childTopicInfo);
+        document.getElementById('mainContent').style.display = 'block';
+        await fetchData();
+      } catch (error) {
+        console.error('Failed to load child topic:', error);
+        alert('Failed to load child topic: ' + error.message);
+      }
+    }
+
+    function renderParentTopicInfo(topicInfo) {
+      // 显示multi topic的父主题基本信息
+      const infoHTML = \`
+        <div class="info-item">
+          <div class="info-label">Topic ID</div>
+          <div class="info-value">\${topicInfo.topicId}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Topic Title</div>
+          <div class="info-value" style="font-size: 14px;">\${topicInfo.title}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Topic Type</div>
+          <div class="info-value" style="color: #38bdf8;">Multi Topic</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Sub Topics</div>
+          <div class="info-value">\${(topicInfo.childList || (topicInfo.raw && topicInfo.raw.childList) || []).length}</div>
+        </div>
+      \`;
+      document.getElementById('topicInfo').innerHTML = infoHTML;
+      document.getElementById('topicInfo').style.display = 'grid';
     }
 
     function renderTopicInfo(topicInfo) {
@@ -578,14 +705,28 @@ function generateHTML() {
     }
 
     async function fetchData() {
-      if (!currentTopicId) return;
+      // Use child topic if selected, otherwise use parent topic
+      const topicIdToFetch = currentChildTopicId || currentTopicId;
+      if (!topicIdToFetch) return;
 
       const timeRange = document.getElementById('timeRange').value;
       const interval = document.getElementById('interval').value;
 
       try {
-        const response = await fetch(\`/api/data?topicId=\${currentTopicId}&range=\${timeRange}&interval=\${interval}\`);
+        // 传递parentTopicId以便后端能正确找到topic信息
+        const params = new URLSearchParams({
+          topicId: topicIdToFetch,
+          parentTopicId: currentTopicId,
+          range: timeRange,
+          interval: interval
+        });
+        const response = await fetch(\`/api/data?\${params}\`);
         const data = await response.json();
+
+        if (data.error) {
+          console.error('API Error:', data.error);
+          alert('Failed to load data: ' + data.error);
+        }
 
         updateStats(data.stats);
         updateChart(data.volumeData);
@@ -626,6 +767,21 @@ function generateHTML() {
     }
 
     function updateChart(volumeData) {
+      // 处理空数据
+      if (!volumeData || volumeData.length === 0) {
+        if (chart) {
+          chart.destroy();
+          chart = null;
+        }
+        const ctx = document.getElementById('volumeChart').getContext('2d');
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        ctx.fillStyle = '#94a3b8';
+        ctx.textAlign = 'center';
+        ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto';
+        ctx.fillText('No trading data available', ctx.canvas.width / 2, ctx.canvas.height / 2);
+        return;
+      }
+
       const labels = volumeData.map(d => {
         const date = new Date(d.timestamp * 1000);
         return date.toLocaleString('en-US', {
@@ -637,9 +793,9 @@ function generateHTML() {
         });
       });
 
-      const volumes = volumeData.map(d => parseFloat(d.volume));
-      const buyVolumes = volumeData.map(d => parseFloat(d.buyVolume));
-      const sellVolumes = volumeData.map(d => parseFloat(d.sellVolume));
+      const volumes = volumeData.map(d => parseFloat(d.volume) || 0);
+      const buyVolumes = volumeData.map(d => parseFloat(d.buyVolume) || 0);
+      const sellVolumes = volumeData.map(d => parseFloat(d.sellVolume) || 0);
 
       const ctx = document.getElementById('volumeChart').getContext('2d');
 
@@ -787,47 +943,128 @@ function findChildTopic(topicInfo, targetTopicId) {
  * 处理API请求
  */
 async function handleAPIRequest(query, db, topicAPI) {
-  const topicId = parseInt(query.topicId);
-  const range = query.range || '60';
-  const interval = parseInt(query.interval) || 1;
+  try {
+    const topicId = parseInt(query.topicId);
+    const parentTopicId = query.parentTopicId ? parseInt(query.parentTopicId) : topicId;
+    const range = query.range || '60';
+    const interval = parseInt(query.interval) || 1;
 
-  const rawTopicInfo = await topicAPI.getTopicInfo(topicId);
-  const topicInfo = findChildTopic(rawTopicInfo, topicId);
+    // 首先使用parentTopicId获取rawTopicInfo（确保能找到缓存文件）
+    const rawTopicInfo = await topicAPI.getTopicInfo(parentTopicId);
 
-  const yesToken = topicInfo.yesToken;
-  const noToken = topicInfo.noToken;
+    // 如果topicId和parentTopicId不同，说明是child topic，需要从childList中查找
+    let topicInfo;
+    if (topicId !== parentTopicId) {
+      topicInfo = findChildTopic(rawTopicInfo, topicId);
+    } else {
+      topicInfo = rawTopicInfo;
+    }
 
-  const allOrders = db.getOrdersByAssetIds([yesToken, noToken].filter(t => t && t !== '0'));
+    const yesToken = topicInfo.yesToken;
+    const noToken = topicInfo.noToken;
 
-  if (allOrders.length === 0) {
+    const allOrders = await db.getOrdersByAssetIds([yesToken, noToken].filter(t => t && t !== '0'));
+
+    if (allOrders.length === 0) {
+      return {
+        stats: {
+          yesOrders: 0,
+          noOrders: 0,
+          totalOrders: 0,
+          yesVolume: '0.0000',
+          noVolume: '0.0000',
+          totalVolume: '0.0000',
+          buyOrders: 0,
+          sellOrders: 0,
+          buyVolume: '0.0000',
+          sellVolume: '0.0000'
+        },
+        volumeData: [],
+        trades: []
+      };
+    }
+
+    const filteredOrders = filterOrdersByTimeRange(allOrders, range);
+    const stats = getTradeStats(filteredOrders, yesToken, noToken);
+    const volumeData = aggregateVolumeByInterval(filteredOrders, interval);
+
+    const serializedVolumeData = volumeData.map(d => ({
+      timestamp: d.timestamp,
+      volume: formatAmount(d.volume.toString()),
+      trades: d.trades,
+      buyVolume: formatAmount(d.buyVolume.toString()),
+      sellVolume: formatAmount(d.sellVolume.toString()),
+      buyTrades: d.buyTrades,
+      sellTrades: d.sellTrades
+    }));
+
+    const trades = generateTradeDetails(filteredOrders, yesToken, noToken, 100);
+
     return {
-      stats: {},
+      stats,
+      volumeData: serializedVolumeData,
+      trades
+    };
+  } catch (error) {
+    console.error('Error in handleAPIRequest:', error);
+    // 返回空数据而不是抛出异常
+    return {
+      stats: {
+        yesOrders: 0,
+        noOrders: 0,
+        totalOrders: 0,
+        yesVolume: '0.0000',
+        noVolume: '0.0000',
+        totalVolume: '0.0000',
+        buyOrders: 0,
+        sellOrders: 0,
+        buyVolume: '0.0000',
+        sellVolume: '0.0000'
+      },
       volumeData: [],
-      trades: []
+      trades: [],
+      error: error.message
     };
   }
+}
 
-  const filteredOrders = filterOrdersByTimeRange(allOrders, range);
-  const stats = getTradeStats(filteredOrders, yesToken, noToken);
-  const volumeData = aggregateVolumeByInterval(filteredOrders, interval);
+/**
+ * 安全的JSON序列化（处理BigInt等特殊类型）
+ */
+function safeJSONStringify(obj) {
+  return JSON.stringify(obj, (key, value) => {
+    if (typeof value === 'bigint') {
+      return value.toString();
+    }
+    return value;
+  });
+}
 
-  const serializedVolumeData = volumeData.map(d => ({
-    timestamp: d.timestamp,
-    volume: formatAmount(d.volume.toString()),
-    trades: d.trades,
-    buyVolume: formatAmount(d.buyVolume.toString()),
-    sellVolume: formatAmount(d.sellVolume.toString()),
-    buyTrades: d.buyTrades,
-    sellTrades: d.sellTrades
-  }));
+/**
+ * 发送JSON响应（带正确的Content-Length和编码）
+ */
+function sendJSON(res, statusCode, data) {
+  const json = safeJSONStringify(data);
+  const buffer = Buffer.from(json, 'utf8');
 
-  const trades = generateTradeDetails(filteredOrders, yesToken, noToken, 100);
+  res.writeHead(statusCode, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Content-Length': buffer.length
+  });
+  res.end(buffer);
+}
 
-  return {
-    stats,
-    volumeData: serializedVolumeData,
-    trades
-  };
+/**
+ * 发送HTML响应（带正确的Content-Length和编码）
+ */
+function sendHTML(res, html) {
+  const buffer = Buffer.from(html, 'utf8');
+
+  res.writeHead(200, {
+    'Content-Type': 'text/html; charset=utf-8',
+    'Content-Length': buffer.length
+  });
+  res.end(buffer);
 }
 
 /**
@@ -845,35 +1082,38 @@ async function startServer() {
 
     try {
       if (pathname === '/') {
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end(generateHTML());
+        sendHTML(res, generateHTML());
       } else if (pathname === '/api/topics') {
         const topics = topicAPI.getAllCachedTopics();
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(topics));
+        sendJSON(res, 200, topics);
       } else if (pathname.startsWith('/api/topic/')) {
         const topicId = parseInt(pathname.split('/')[3]);
         try {
           const rawTopicInfo = await topicAPI.getTopicInfo(topicId);
-          const topicInfo = findChildTopic(rawTopicInfo, topicId);
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify(topicInfo));
+
+          // 如果请求的是parent topic ID，直接返回完整信息（包括childList）
+          if (rawTopicInfo.topicId === topicId) {
+            // 清理冗余数据节省流量
+            rawTopicInfo.raw.klineThumbnail=[];
+            sendJSON(res, 200, rawTopicInfo);
+          } else {
+            // 如果请求的是child topic ID，从childList中查找
+            const topicInfo = findChildTopic(rawTopicInfo, topicId);
+            sendJSON(res, 200, topicInfo);
+          }
         } catch (error) {
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: error.message }));
+          sendJSON(res, 200, { error: error.message });
         }
       } else if (pathname === '/api/data') {
         const data = await handleAPIRequest(parsedUrl.query, db, topicAPI);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(data));
+        sendJSON(res, 200, data);
       } else {
-        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
         res.end('Not Found');
       }
     } catch (error) {
       console.error('Request error:', error);
-      res.writeHead(500, { 'Content-Type': 'text/plain' });
-      res.end('Internal Server Error');
+      sendJSON(res, 500, { error: 'Internal Server Error', message: error.message });
     }
   });
 
